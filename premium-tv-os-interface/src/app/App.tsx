@@ -688,13 +688,14 @@ function validateRecipeName(name: string) {
   return "";
 }
 
-function SaveCurrentPictureModal({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: (name: string) => void }) {
+function SaveCurrentPictureModal({ open, intent = "share", onClose, onSave }: { open: boolean; intent?: "save" | "share"; onClose: () => void; onSave: (name: string) => void }) {
   const [recipeName, setRecipeName] = useState("我的夜间影院");
   const [summary, setSummary] = useState("适合夜间观影，保留暗场层次并降低高光刺激。");
   const [tags, setTags] = useState(["电影", "夜间"]);
   const [touched, setTouched] = useState(false);
   const tagOptions = ["电影", "游戏", "体育", "动漫", "护眼", "夜间", "儿童", "直播"];
   const nameError = validateRecipeName(recipeName);
+  const isSaveIntent = intent === "save";
 
   const submit = (next: (name: string) => void) => {
     setTouched(true);
@@ -720,9 +721,9 @@ function SaveCurrentPictureModal({ open, onClose, onSave }: { open: boolean; onC
       <motion.div initial={{ y: 28, scale: .96, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: 18, scale: .97, opacity: 0 }} className="w-[980px] rounded-[42px] border border-white/14 bg-[#10141a]/95 p-10 shadow-[0_40px_120px_rgba(0,0,0,.7)]">
         <div className="flex items-start justify-between gap-6">
           <div>
-            <p className="text-lg font-black tracking-[.22em] text-[#ff5964]">SHARE PICTURE</p>
-            <h2 className="mt-3 text-6xl font-black text-white">分享画质参数</h2>
-            <p className="mt-4 text-2xl font-semibold text-white/50">命名当前画质，生成可导入的分享码。</p>
+            <p className="text-lg font-black tracking-[.22em] text-[#ff5964]">{isSaveIntent ? "SAVE PICTURE" : "SHARE PICTURE"}</p>
+            <h2 className="mt-3 text-6xl font-black text-white">{isSaveIntent ? "保存当前方案" : "分享画质参数"}</h2>
+            <p className="mt-4 text-2xl font-semibold text-white/50">{isSaveIntent ? "命名当前画质，保存到我的方案。" : "命名当前画质，生成可导入的分享码。"}</p>
           </div>
           <button onClick={onClose} aria-label="关闭创建弹窗" className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl border border-white/10 bg-white/[.05] text-white/55 hover:bg-white/10 hover:text-white focus:border-white focus:text-white">
             <X size={30} />
@@ -770,8 +771,8 @@ function SaveCurrentPictureModal({ open, onClose, onSave }: { open: boolean; onC
         <div className="mt-8 grid grid-cols-[.8fr_1.2fr] gap-4">
           <TVSecondaryButton onClick={onClose}>取消</TVSecondaryButton>
           <TVPrimaryButton onClick={() => submit(onSave)}>
-            <Play size={24} />
-            下一步
+            {isSaveIntent ? <Save size={24} /> : <Play size={24} />}
+            {isSaveIntent ? "保存到我的方案" : "下一步"}
           </TVPrimaryButton>
         </div>
       </motion.div>
@@ -1124,10 +1125,12 @@ function PictureSettingsMenu({ onOpenRecipeCenter }: { onOpenRecipeCenter: () =>
 }
 
 // ─── HOME PAGE ───────────────────────────────────────────────────────────────
-function HomePage({ onNavigate, onPreview }: { onNavigate: (p: Page) => void; onPreview: (mode: PictureMode) => void }) {
+function HomePage({ onNavigate, onPreview, onSaveCurrentRecipe }: { onNavigate: (p: Page) => void; onPreview: (mode: PictureMode) => void; onSaveCurrentRecipe: (name: string) => void }) {
   const [focused, setFocused] = useState(0);
   const [homeToast, setHomeToast] = useState("");
   const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [saveIntent, setSaveIntent] = useState<"save" | "share">("share");
+  const [draftRecipeName, setDraftRecipeName] = useState("我的夜间影院");
   const [sharePreviewOpen, setSharePreviewOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importPreviewOpen, setImportPreviewOpen] = useState(false);
@@ -1194,6 +1197,7 @@ function HomePage({ onNavigate, onPreview }: { onNavigate: (p: Page) => void; on
       return;
     }
     if (index === 3) {
+      setSaveIntent("share");
       setSaveModalOpen(true);
       return;
     }
@@ -1303,7 +1307,16 @@ function HomePage({ onNavigate, onPreview }: { onNavigate: (p: Page) => void; on
             ))}
           </div>
 
-          <div className="mt-3"><button data-testid="save-current-picture" onClick={() => setSaveModalOpen(true)} className="flex h-12 w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-br from-[#f23844] to-[#c61927] text-base font-black text-white shadow-[0_12px_30px_rgba(238,46,59,.28)] transition hover:scale-[1.01] focus:scale-[1.01] focus:ring-2 focus:ring-white 2xl:h-14 2xl:text-xl"><Share2 size={20} />分享画质参数</button></div>
+          <div className="mt-3 grid grid-cols-[.92fr_1.08fr] gap-3">
+            <button data-testid="save-current-recipe" onClick={() => { setSaveIntent("save"); setSaveModalOpen(true); }} className="flex h-12 items-center justify-center gap-2.5 rounded-2xl border border-white/12 bg-white/[.08] text-base font-black text-white/86 transition hover:scale-[1.01] hover:bg-white/[.12] focus:scale-[1.01] focus:ring-2 focus:ring-white 2xl:h-14 2xl:text-xl">
+              <Save size={20} />
+              保存当前方案
+            </button>
+            <button data-testid="share-current-picture" onClick={() => { setSaveIntent("share"); setSaveModalOpen(true); }} className="flex h-12 items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-br from-[#f23844] to-[#c61927] text-base font-black text-white shadow-[0_12px_30px_rgba(238,46,59,.28)] transition hover:scale-[1.01] focus:scale-[1.01] focus:ring-2 focus:ring-white 2xl:h-14 2xl:text-xl">
+              <Share2 size={20} />
+              分享画质参数
+            </button>
+          </div>
         </div>}
       </section>
 
@@ -1330,15 +1343,22 @@ function HomePage({ onNavigate, onPreview }: { onNavigate: (p: Page) => void; on
       <AnimatePresence>
         <SaveCurrentPictureModal
           open={saveModalOpen}
+          intent={saveIntent}
           onClose={() => setSaveModalOpen(false)}
           onSave={(name) => {
             setSaveModalOpen(false);
+            setDraftRecipeName(name);
+            if (saveIntent === "save") {
+              onSaveCurrentRecipe(name);
+              setHomeToast("已保存到我的方案");
+              return;
+            }
             setSharePreviewOpen(true);
           }}
         />
       </AnimatePresence>
       <AnimatePresence><ImportRecipeModal open={importModalOpen} onClose={() => setImportModalOpen(false)} onPreview={() => { setImportModalOpen(false); setImportPreviewOpen(true); }} /></AnimatePresence>
-      <AnimatePresence><ImportedParameterPreviewModal open={sharePreviewOpen} flow="share" mode={heroMode} onClose={() => setSharePreviewOpen(false)} onSave={() => { setSharePreviewOpen(false); setHomeToast("已保存到我的方案"); }} onShare={() => { setSharePreviewOpen(false); setShareCode({ title: "我的夜间影院", code: makeRecipeCode("我的夜间影院") }); }} /></AnimatePresence>
+      <AnimatePresence><ImportedParameterPreviewModal open={sharePreviewOpen} flow="share" mode={heroMode} onClose={() => setSharePreviewOpen(false)} onSave={() => { onSaveCurrentRecipe(draftRecipeName); setSharePreviewOpen(false); setHomeToast("已保存到我的方案"); }} onShare={() => { setSharePreviewOpen(false); setShareCode({ title: draftRecipeName, code: makeRecipeCode(draftRecipeName) }); }} /></AnimatePresence>
       <AnimatePresence><ImportedParameterPreviewModal open={importPreviewOpen} flow="import" mode={DIRECTOR_MODES[0]} onClose={() => setImportPreviewOpen(false)} onSave={() => { setImportPreviewOpen(false); setHomeToast("已保存到我的方案"); }} onApply={() => { setImportPreviewOpen(false); setHomeToast("已应用"); }} /></AnimatePresence>
       <AnimatePresence><ShareCodeModal open={!!shareCode} title={shareCode?.title ?? ""} code={shareCode?.code ?? ""} onClose={() => setShareCode(null)} /></AnimatePresence>
       <AnimatePresence>{homeToast && <motion.div initial={{ opacity: 0, y: 18, scale: .96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12 }} className="fixed bottom-8 left-1/2 z-[140] flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-emerald-300/20 bg-[#101a17]/95 px-6 py-4 text-sm font-bold text-emerald-200 shadow-[0_20px_60px_rgba(0,0,0,.55)] backdrop-blur-xl"><Check size={18} />{homeToast}</motion.div>}</AnimatePresence>
@@ -2066,6 +2086,30 @@ export default function App() {
     setSelectedSavedRecipeTitle(null);
     setPage("myrecipes");
   }, [deleteSavedRecipe, selectedSavedRecipeTitle]);
+  const saveCurrentRecipe = useCallback((name: string) => {
+    const trimmed = name.trim() || "我的夜间影院";
+    const savedMode: PictureMode = {
+      ...DIRECTOR_MODES[0],
+      id: `saved-${Date.now()}`,
+      title: trimmed,
+      description: "当前屏幕画质会随信号独立保存",
+      metadata: {
+        ...DIRECTOR_MODES[0].metadata,
+        type: "User Created",
+        compatibility: "Fully Applied",
+      },
+    };
+    const nextRecipe: SavedRecipe = {
+      title: trimmed,
+      desc: "当前屏幕画质会随信号独立保存",
+      saved: "刚刚",
+      fav: false,
+      img: HERO_IMAGE,
+      uses: 0,
+      mode: savedMode,
+    };
+    setSavedRecipes((items) => [nextRecipe, ...items.filter((item) => item.title !== trimmed)]);
+  }, []);
 
   return (
     <div
@@ -2093,7 +2137,7 @@ export default function App() {
           exit={{ opacity: 0, y: -12 }}
           transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
         >
-          {page === "home" && <HomePage onNavigate={navigate} onPreview={openPreview} />}
+          {page === "home" && <HomePage onNavigate={navigate} onPreview={openPreview} onSaveCurrentRecipe={saveCurrentRecipe} />}
           {page === "ai" && <AIPage onBack={back} onPreview={openPreview} />}
           {page === "preview" && <PreviewPage onBack={back} mode={selectedMode} savedRecipeTitle={selectedSavedRecipeTitle} onDelete={selectedSavedRecipeTitle ? deleteCurrentSavedRecipe : undefined} />}
           {page === "recommended" && <RecommendedPage onBack={back} onPreview={openPreview} />}
