@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, Component, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -29,12 +29,25 @@ import {
   Info,
   AlertTriangle,
   Trash2,
+  Leaf,
+  SunMedium,
+  Gamepad2,
+  Clapperboard,
+  Box,
+  Building2,
+  Camera,
+  CheckCircle2,
 } from "lucide-react";
 
 type Page = "home" | "ai" | "preview" | "recommended" | "myrecipes" | "share";
 
-const assetPath = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
+const assetPath = (path: string) => {
+  const clean = path.replace(/^\//, "");
+  const base = import.meta.env.BASE_URL || "./";
+  return `${base.endsWith("/") ? base : base + "/"}${clean}`;
+};
 const HERO_IMAGE = assetPath("media/tcl-imax-poster.jpg");
+const HERO_FALLBACK_IMAGE = "https://images.unsplash.com/photo-1518676590629-3dcbd9c5a5c9?w=1920&h=1080&fit=crop&auto=format";
 const DEMO_VIDEO = assetPath("media/tcl-picture-demo.mp4");
 const MOVIE_IMAGES = [
   "https://images.unsplash.com/photo-1518676590629-3dcbd9c5a5c9?w=600&h=340&fit=crop&auto=format",
@@ -737,11 +750,6 @@ function SaveCurrentPictureModal({ open, intent = "share", onClose, onSave }: { 
             {touched && nameError && <span className="mt-3 block text-xl font-bold text-[#ff6670]">{nameError}</span>}
           </label>
 
-          <label className="block">
-            <span className="mb-3 block text-2xl font-bold text-white/58">一句话介绍</span>
-            <input value={summary} onChange={(e) => setSummary(e.target.value)} className="h-20 w-full rounded-[28px] border border-white/10 bg-white/[.06] px-8 text-2xl font-semibold text-white outline-none transition placeholder:text-white/20 focus:border-white/80 focus:bg-white/[.09]" placeholder="这套画质适合什么场景？" />
-          </label>
-
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-[26px] border border-white/[.08] bg-white/[.04] p-5">
               <span className="block text-xl font-bold text-white/38">自动识别设备</span>
@@ -750,20 +758,6 @@ function SaveCurrentPictureModal({ open, intent = "share", onClose, onSave }: { 
             <div className="rounded-[26px] border border-white/[.08] bg-white/[.04] p-5">
               <span className="block text-xl font-bold text-white/38">当前信号 / 图像模式</span>
               <strong className="mt-2 block text-3xl font-black text-white">HDR10 · 电影模式</strong>
-            </div>
-          </div>
-
-          <div>
-            <span className="mb-4 block text-2xl font-bold text-white/58">场景标签</span>
-            <div className="flex flex-wrap gap-3">
-              {tagOptions.map((tag) => {
-                const active = tags.includes(tag);
-                return (
-                  <button key={tag} onClick={() => setTags((list) => active ? list.filter((item) => item !== tag) : [...list, tag])} className={`rounded-[24px] border px-7 py-4 text-2xl font-black transition focus:scale-[1.04] focus:outline-none ${active ? "border-[#ff4d5b] bg-[#ff4d5b]/18 text-white" : "border-white/10 bg-white/[.05] text-white/45 hover:text-white"}`}>
-                    {tag}
-                  </button>
-                );
-              })}
             </div>
           </div>
         </div>
@@ -1057,13 +1051,13 @@ function ImportedParameterPreviewModal({ open, mode, flow = "import", onClose, o
   ), document.body);
 }
 
-function PictureSettingsMenu({ onOpenRecipeCenter }: { onOpenRecipeCenter: () => void }) {
+function PictureSettingsMenu({ onOpenMyRecipes }: { onOpenMyRecipes: () => void }) {
   const menuItems = [
     { label: "亮度", value: "", disabled: false },
     { label: "色彩", value: "", disabled: false },
     { label: "运动", value: "", disabled: false },
     { label: "清晰度", value: "", disabled: false },
-    { label: "光影实验室", value: "", disabled: false, action: onOpenRecipeCenter },
+    { label: "画质参数分享", value: "", disabled: false, action: onOpenMyRecipes },
     { label: "信号范围", value: "自动", disabled: true },
     { label: "显示标准", value: "自动", disabled: true },
   ];
@@ -1098,13 +1092,13 @@ function PictureSettingsMenu({ onOpenRecipeCenter }: { onOpenRecipeCenter: () =>
 
         <p className="mb-7 mt-11 text-2xl font-medium text-white/82">高级设置</p>
         <div className="overflow-hidden rounded-[20px] bg-[#1d2530]/94">
-          {menuItems.map((item, index) => (
+          {menuItems.map((item) => (
             <button
               key={item.label}
               onClick={item.action}
               disabled={item.disabled}
               className={`group flex h-[96px] w-full items-center justify-between border-b border-white/[.035] px-8 text-left text-[28px] transition last:border-b-0 ${
-                item.label === "光影实验室"
+                item.label === "画质参数分享"
                   ? "bg-gradient-to-r from-[#e31937]/22 to-transparent text-white ring-2 ring-[#ff4d5b]/50"
                   : item.disabled
                     ? "text-white/20"
@@ -1125,6 +1119,7 @@ function PictureSettingsMenu({ onOpenRecipeCenter }: { onOpenRecipeCenter: () =>
 }
 
 // ─── HOME PAGE ───────────────────────────────────────────────────────────────
+// ─── HOME PAGE ───────────────────────────────────────────────────────────────
 function HomePage({ onNavigate, onPreview, onSaveCurrentRecipe }: { onNavigate: (p: Page) => void; onPreview: (mode: PictureMode) => void; onSaveCurrentRecipe: (name: string) => void }) {
   const [focused, setFocused] = useState(0);
   const [homeToast, setHomeToast] = useState("");
@@ -1135,83 +1130,37 @@ function HomePage({ onNavigate, onPreview, onSaveCurrentRecipe }: { onNavigate: 
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importPreviewOpen, setImportPreviewOpen] = useState(false);
   const [shareCode, setShareCode] = useState<{ title: string; code: string } | null>(null);
-  const [recipeOverlayOpen, setRecipeOverlayOpen] = useState(false);
-  const heroMode = DIRECTOR_MODES[0];
-  const currentPictureMeta = [
-    ["电视型号", "TCL C11K"],
-    ["信源", "HDMI 1"],
-    ["信号", "HDR10"],
-    ["图效", "TSR计算画质"],
-  ];
-  const currentPictureGroups = [
-    {
-      title: "亮度",
-      items: [
-        ["亮度", String(heroMode.values.screenBrightness)],
-        ["区域背光", "高"],
-        ["动态对比度", "关"],
-        ["峰值亮度", "中"],
-      ],
-    },
-    {
-      title: "色彩",
-      items: [
-        ["饱和度", String(heroMode.values.color)],
-        ["色调", "52"],
-        ["色温", heroMode.values.colorTemperature],
-        ["色彩增强", "低"],
-        ["白平衡", "默认"],
-        ["色彩空间", "自动"],
-      ],
-    },
-    {
-      title: "运动",
-      items: [
-        ["运动补偿", heroMode.values.memc],
-        ["DLG", "关"],
-        ["LED运动清晰", "关"],
-      ],
-    },
-    {
-      title: "清晰度",
-      items: [
-        ["锐利度", String(heroMode.values.sharpness)],
-        ["水印平滑", "低"],
-        ["MPEG降噪", "自动"],
-        ["降噪", "低"],
-        ["超清分辨率", "中"],
-        ["精准细节", "低"],
-      ],
-    },
-  ];
+  const [recipeOverlayOpen, setRecipeOverlayOpen] = useState(true);
 
+  // Cleaned 3 function cards (Deleted 官方方案 card!)
   const functionCards = [
-    { label: "官方方案", icon: ChefHat, page: "recommended" as Page, desc: "发现适合当前内容的画质方案", meta: "大师与官方精选", color: "#f0525d" },
     { label: "我的方案", icon: SlidersHorizontal, page: "myrecipes" as Page, desc: "查看已保存和正在使用的方案", meta: "已保存 4 个方案", color: "#5b7cfa" },
     { label: "导入方案", icon: Upload, page: "share" as Page, desc: "导入他人分享的画质方案", meta: "先预览再应用", color: "#38b998" },
     { label: "分享画质参数", icon: Share2, page: "home" as Page, desc: "分享当前屏幕画质", meta: "自动识别当前信号", color: "#ffb84d" },
   ];
+
   const openFunctionCard = useCallback((index: number) => {
-    if (index === 2) {
+    if (index === 1) {
       setImportModalOpen(true);
       return;
     }
-    if (index === 3) {
+    if (index === 2) {
       setSaveIntent("share");
       setSaveModalOpen(true);
       return;
     }
     onNavigate(functionCards[index].page);
   }, [onNavigate]);
+
   const activateFocused = useCallback(() => {
     openFunctionCard(focused);
   }, [focused, openFunctionCard]);
+
   const maxFocus = functionCards.length - 1;
 
   useEffect(() => {
     if (!recipeOverlayOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement | null)?.closest?.("[data-current-picture-control]")) return;
       if (e.key === "ArrowRight") {
         e.preventDefault();
         setFocused((f) => Math.min(f + 1, maxFocus));
@@ -1219,14 +1168,6 @@ function HomePage({ onNavigate, onPreview, onSaveCurrentRecipe }: { onNavigate: 
       if (e.key === "ArrowLeft") {
         e.preventDefault();
         setFocused((f) => Math.max(f - 1, 0));
-      }
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setFocused((f) => f);
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setFocused((f) => f);
       }
       if (e.key === "Enter") activateFocused();
     };
@@ -1243,23 +1184,34 @@ function HomePage({ onNavigate, onPreview, onSaveCurrentRecipe }: { onNavigate: 
   return (
     <div className="relative w-full h-full overflow-hidden bg-[#07090c]" style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}>
       <section className="home-hero relative h-full overflow-hidden">
+        {/* Fallback image underneath video to prevent black screen */}
+        <img
+          src={HERO_IMAGE}
+          onError={(e) => { const img = e.target as HTMLImageElement; img.onerror = null; img.src = HERO_FALLBACK_IMAGE; }}
+          alt="TCL 影视画面背景"
+          className="absolute inset-0 w-full h-full object-cover opacity-85"
+        />
         <video
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover z-10"
           autoPlay
           muted
           loop
           playsInline
           poster={HERO_IMAGE}
-          aria-label="TCL 光影实验室画质演示视频"
+          aria-label="TCL 画质互传画质演示视频"
         >
           <source src={DEMO_VIDEO} type="video/mp4" />
         </video>
-        <div className="absolute inset-0" style={{ background: "linear-gradient(90deg,rgba(3,5,8,.18) 0%,rgba(3,5,8,.04) 52%,rgba(3,5,8,.12) 100%),linear-gradient(180deg,rgba(0,0,0,.18),transparent 40%,rgba(0,0,0,.36) 100%)" }} />
+        <div className="absolute inset-0 z-20" style={{ background: "linear-gradient(90deg,rgba(3,5,8,.18) 0%,rgba(3,5,8,.04) 52%,rgba(3,5,8,.12) 100%),linear-gradient(180deg,rgba(0,0,0,.18),transparent 40%,rgba(0,0,0,.36) 100%)" }} />
 
-        <header className="absolute inset-x-0 top-0 flex items-center justify-between px-12 pt-8">
+        {/* Clean Header - Renamed to 画质参数分享 */}
+        <header className="absolute inset-x-0 top-0 z-30 flex items-center justify-between px-12 pt-8">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-16 items-center justify-center rounded-lg bg-[#e31937] text-base font-black tracking-tight text-white">TCL</div>
-            <div><p className="text-lg font-bold text-white">光影实验室</p><p className="text-xs font-semibold tracking-[.16em] text-white/40">画质方案</p></div>
+            <div>
+              <p className="text-lg font-bold text-white">画质参数分享</p>
+              <p className="text-xs font-semibold tracking-[.16em] text-white/40">画质互传</p>
+            </div>
           </div>
           <div className="flex items-center gap-6 text-sm font-medium text-white/60">
             <span className="flex items-center gap-2"><Activity size={16} className="text-[#ff4c58]" />HDR10 信号</span>
@@ -1267,78 +1219,65 @@ function HomePage({ onNavigate, onPreview, onSaveCurrentRecipe }: { onNavigate: 
           </div>
         </header>
 
-        {!recipeOverlayOpen && <PictureSettingsMenu onOpenRecipeCenter={() => setRecipeOverlayOpen(true)} />}
-
-        {recipeOverlayOpen && <div
-          data-current-picture-control
-          tabIndex={0}
-          className="home-current-picture absolute right-10 top-[82px] z-[70] w-[clamp(650px,34vw,1120px)] rounded-[28px] border border-white/18 bg-black/66 p-5 backdrop-blur-2xl outline-none transition focus:border-white/80 focus:shadow-[0_0_0_4px_rgba(255,255,255,.13)] 2xl:right-16 2xl:top-[96px] 2xl:p-6"
-        >
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[.18em] text-[#ff6670] 2xl:text-xs">CURRENT PICTURE</p>
-              <h2 className="mt-1 text-[26px] font-black leading-tight text-white 2xl:text-[32px]">当前屏幕画质</h2>
-            </div>
-            <span className="rounded-full bg-emerald-400/15 px-4 py-2 text-xs font-black text-emerald-300 2xl:text-sm">已识别</span>
-          </div>
-
-          <div className="mt-4 grid grid-cols-4 gap-2">
-            {currentPictureMeta.map(([label, value]) => (
-              <div key={label} className="min-w-0 rounded-xl border border-white/[.08] bg-white/[.055] px-3 py-2.5">
-                <span className="block text-[10px] font-bold text-white/35 2xl:text-xs">{label}</span>
-                <b className="mt-0.5 block truncate text-[14px] font-black text-white/82 2xl:text-[17px]">{value}</b>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            {currentPictureGroups.map((group) => (
-              <section key={group.title} className="rounded-[20px] border border-white/[.08] bg-white/[.045] p-3 2xl:p-4">
-                <h3 className="text-[18px] font-black text-white 2xl:text-[22px]">{group.title}</h3>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  {group.items.map(([label, value]) => (
-                    <div key={`${group.title}-${label}`} className="min-w-0 rounded-xl bg-black/26 px-3 py-2">
-                      <span className="block truncate text-[10px] font-bold text-white/38 2xl:text-xs">{label}</span>
-                      <b className="mt-0.5 block truncate text-[15px] font-black text-white/88 2xl:text-[18px]">{value}</b>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-
-          <div className="mt-3 grid grid-cols-[.92fr_1.08fr] gap-3">
-            <button data-testid="save-current-recipe" onClick={() => { setSaveIntent("save"); setSaveModalOpen(true); }} className="flex h-12 items-center justify-center gap-2.5 rounded-2xl border border-white/12 bg-white/[.08] text-base font-black text-white/86 transition hover:scale-[1.01] hover:bg-white/[.12] focus:scale-[1.01] focus:ring-2 focus:ring-white 2xl:h-14 2xl:text-xl">
-              <Save size={20} />
-              保存当前方案
-            </button>
-            <button data-testid="share-current-picture" onClick={() => { setSaveIntent("share"); setSaveModalOpen(true); }} className="flex h-12 items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-br from-[#f23844] to-[#c61927] text-base font-black text-white shadow-[0_12px_30px_rgba(238,46,59,.28)] transition hover:scale-[1.01] focus:scale-[1.01] focus:ring-2 focus:ring-white 2xl:h-14 2xl:text-xl">
-              <Share2 size={20} />
-              分享画质参数
-            </button>
-          </div>
-        </div>}
+        {!recipeOverlayOpen && <PictureSettingsMenu onOpenMyRecipes={() => onNavigate("myrecipes")} />}
       </section>
 
+      {/* 3 Function Cards Overlay Drawer */}
       <AnimatePresence>
-      {recipeOverlayOpen && <motion.section initial={{ opacity: 0, y: 48 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 32 }} className="home-main absolute inset-x-0 bottom-0 z-50 px-12 pb-8 pt-7" style={{ maxHeight: "42vh", background: "linear-gradient(180deg,rgba(7,9,12,.08) 0%,rgba(7,9,12,.9) 20%,#07090c 100%)" }}>
-        <div className="mb-4 flex items-end justify-between">
-          <div><p className="text-xs font-bold tracking-[.18em] text-[#e94a55]">LIGHT STUDIO</p><h2 className="mt-1 text-3xl font-black text-white">光影实验室</h2><p className="mt-1 text-sm font-semibold text-white/42">保存、导入和发现更适合你的画质方案</p></div>
-          <button onClick={() => setRecipeOverlayOpen(false)} className="flex h-11 items-center gap-2 rounded-2xl border border-white/10 bg-white/[.06] px-5 text-sm font-black text-white/62 hover:bg-white/[.11] hover:text-white focus:border-white">
-            <X size={18} />
-            返回图像设置
-          </button>
-        </div>
-        <div className="grid grid-cols-4 gap-5">
-          {functionCards.map((item, i) => (
-            <motion.button key={item.label} onMouseEnter={() => setFocused(i)} onFocus={() => setFocused(i)} onClick={() => openFunctionCard(i)} animate={{ scale: focused === i ? 1.025 : 1 }} className="home-function-card group relative flex h-[clamp(128px,15.5vh,168px)] items-center overflow-hidden rounded-[28px] border p-7 text-left" style={{ background: i === 0 ? "linear-gradient(135deg,#2a1118,#171a20 72%)" : "linear-gradient(145deg,#1b1f26,#11141a)", borderColor: focused === i ? "rgba(255,255,255,.95)" : "rgba(255,255,255,.1)", boxShadow: focused === i ? "0 0 0 5px rgba(255,255,255,.14),0 24px 55px rgba(0,0,0,.55)" : "0 14px 34px rgba(0,0,0,.25)" }}>
-              <span className="mr-6 flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl" style={{ background: `${item.color}24`, color: item.color }}><item.icon size={34} /></span><div className="min-w-0 flex-1"><div className="flex items-center justify-between"><h3 className="text-2xl font-black text-white">{item.label}</h3><ChevronRight size={26} className="text-white/24 transition group-hover:text-white/75" /></div><p className="mt-3 truncate text-base text-white/52">{item.desc}</p><p className="mt-4 text-sm font-semibold" style={{ color: `${item.color}dd` }}>{item.meta}</p></div>
-              <div className="absolute bottom-0 left-0 h-[3px] transition-all" style={{ width: focused === i ? "100%" : "0%", background: item.color }} />
-            </motion.button>
-          ))}
-        </div>
+        {recipeOverlayOpen && (
+          <motion.section
+            initial={{ opacity: 0, y: 48 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 32 }}
+            className="home-main absolute inset-x-0 bottom-0 z-50 px-12 pb-8 pt-7"
+            style={{ maxHeight: "42vh", background: "linear-gradient(180deg,rgba(7,9,12,.08) 0%,rgba(7,9,12,.9) 20%,#07090c 100%)" }}
+          >
+            <div className="mb-4 flex items-end justify-between">
+              <div>
+                <p className="text-xs font-bold tracking-[.18em] text-[#e94a55]">PARAM SHARE</p>
+                <h2 className="mt-1 text-3xl font-black text-white">画质参数分享</h2>
+              </div>
+              <button
+                onClick={() => onNavigate("myrecipes")}
+                className="flex h-11 items-center gap-2 rounded-2xl border border-white/10 bg-white/[.06] px-5 text-sm font-black text-white/62 hover:bg-white/[.11] hover:text-white focus:border-white"
+              >
+                <X size={18} />
+                进入我的方案
+              </button>
+            </div>
 
-      </motion.section>}
+            <div className="grid grid-cols-3 gap-6">
+              {functionCards.map((item, i) => (
+                <motion.button
+                  key={item.label}
+                  onMouseEnter={() => setFocused(i)}
+                  onFocus={() => setFocused(i)}
+                  onClick={() => openFunctionCard(i)}
+                  animate={{ scale: focused === i ? 1.025 : 1 }}
+                  className="home-function-card group relative flex h-[clamp(128px,15.5vh,168px)] items-center overflow-hidden rounded-[28px] border p-7 text-left"
+                  style={{
+                    background: "linear-gradient(145deg,#1b1f26,#11141a)",
+                    borderColor: focused === i ? "rgba(255,255,255,.95)" : "rgba(255,255,255,.1)",
+                    boxShadow: focused === i ? "0 0 0 5px rgba(255,255,255,.14),0 24px 55px rgba(0,0,0,.55)" : "0 14px 34px rgba(0,0,0,.25)",
+                  }}
+                >
+                  <span className="mr-6 flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl" style={{ background: `${item.color}24`, color: item.color }}>
+                    <item.icon size={34} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-2xl font-black text-white">{item.label}</h3>
+                      <ChevronRight size={26} className="text-white/24 transition group-hover:text-white/75" />
+                    </div>
+                    <p className="mt-3 truncate text-base text-white/52">{item.desc}</p>
+                    <p className="mt-4 text-sm font-semibold" style={{ color: `${item.color}dd` }}>{item.meta}</p>
+                  </div>
+                  <div className="absolute bottom-0 left-0 h-[3px] transition-all" style={{ width: focused === i ? "100%" : "0%", background: item.color }} />
+                </motion.button>
+              ))}
+            </div>
+          </motion.section>
+        )}
       </AnimatePresence>
       <AnimatePresence>
         <SaveCurrentPictureModal
@@ -1358,7 +1297,7 @@ function HomePage({ onNavigate, onPreview, onSaveCurrentRecipe }: { onNavigate: 
         />
       </AnimatePresence>
       <AnimatePresence><ImportRecipeModal open={importModalOpen} onClose={() => setImportModalOpen(false)} onPreview={() => { setImportModalOpen(false); setImportPreviewOpen(true); }} /></AnimatePresence>
-      <AnimatePresence><ImportedParameterPreviewModal open={sharePreviewOpen} flow="share" mode={heroMode} onClose={() => setSharePreviewOpen(false)} onSave={() => { onSaveCurrentRecipe(draftRecipeName); setSharePreviewOpen(false); setHomeToast("已保存到我的方案"); }} onShare={() => { setSharePreviewOpen(false); setShareCode({ title: draftRecipeName, code: makeRecipeCode(draftRecipeName) }); }} /></AnimatePresence>
+      <AnimatePresence><ImportedParameterPreviewModal open={sharePreviewOpen} flow="share" mode={DIRECTOR_MODES[0]} onClose={() => setSharePreviewOpen(false)} onSave={() => { onSaveCurrentRecipe(draftRecipeName); setSharePreviewOpen(false); setHomeToast("已保存到我的方案"); }} onShare={() => { setSharePreviewOpen(false); setShareCode({ title: draftRecipeName, code: makeRecipeCode(draftRecipeName) }); }} /></AnimatePresence>
       <AnimatePresence><ImportedParameterPreviewModal open={importPreviewOpen} flow="import" mode={DIRECTOR_MODES[0]} onClose={() => setImportPreviewOpen(false)} onSave={() => { setImportPreviewOpen(false); setHomeToast("已保存到我的方案"); }} onApply={() => { setImportPreviewOpen(false); setHomeToast("已应用"); }} /></AnimatePresence>
       <AnimatePresence><ShareCodeModal open={!!shareCode} title={shareCode?.title ?? ""} code={shareCode?.code ?? ""} onClose={() => setShareCode(null)} /></AnimatePresence>
       <AnimatePresence>{homeToast && <motion.div initial={{ opacity: 0, y: 18, scale: .96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12 }} className="fixed bottom-8 left-1/2 z-[140] flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-emerald-300/20 bg-[#101a17]/95 px-6 py-4 text-sm font-bold text-emerald-200 shadow-[0_20px_60px_rgba(0,0,0,.55)] backdrop-blur-xl"><Check size={18} />{homeToast}</motion.div>}</AnimatePresence>
@@ -1581,7 +1520,8 @@ function AIPage({ onBack, onPreview }: { onBack: () => void; onPreview: (mode: P
 }
 
 // ─── PREVIEW PAGE ─────────────────────────────────────────────────────────────
-function PreviewPage({ onBack, mode, savedRecipeTitle, onDelete }: { onBack: () => void; mode: PictureMode; savedRecipeTitle?: string | null; onDelete?: () => void }) {
+function PreviewPage({ onBack, mode, savedRecipeTitle, onDelete }: { onBack: () => void; mode?: PictureMode; savedRecipeTitle?: string | null; onDelete?: () => void }) {
+  const safeMode = mode || DIRECTOR_MODES[0];
   const [confirmed, setConfirmed] = useState(false);
   const [focusedAction, setFocusedAction] = useState(2);
   const [shareCode, setShareCode] = useState<{ title: string; code: string } | null>(null);
@@ -1599,7 +1539,7 @@ function PreviewPage({ onBack, mode, savedRecipeTitle, onDelete }: { onBack: () 
     setApplyConfirmOpen(false);
     setConfirmed(true);
   }, []);
-  const shareRecipe = useCallback(() => setShareCode({ title: mode.title, code: makeRecipeCode(mode.title) }), [mode.title]);
+  const shareRecipe = useCallback(() => setShareCode({ title: safeMode.title, code: makeRecipeCode(safeMode.title) }), [safeMode.title]);
 
   useEffect(() => {
     setFocusedAction(canDelete ? 3 : 2);
@@ -1634,20 +1574,26 @@ function PreviewPage({ onBack, mode, savedRecipeTitle, onDelete }: { onBack: () 
         <section className="flex min-h-0 flex-col gap-5">
           <div className="rounded-[32px] border border-white/10 bg-[#10141a] p-7 shadow-[0_30px_90px_rgba(0,0,0,.42)]">
             <p className="text-[11px] font-black tracking-[.18em] text-[#f0525d]">PICTURE RECIPE</p>
-            <h1 className="mt-3 text-5xl font-black leading-tight text-white">{mode.title}</h1>
-            <p className="mt-6 text-2xl font-semibold leading-snug text-white/78">{mode.description}</p>
+            <h1 className="mt-3 text-5xl font-black leading-tight text-white">{safeMode.title}</h1>
+            <p className="mt-6 text-2xl font-semibold leading-snug text-white/78">{safeMode.description}</p>
             <div className="mt-6 flex flex-wrap gap-3">
-              {[mode.metadata.signal, mode.values.pictureMode, mode.metadata.scene].map((item) => <Tag key={item} label={item} />)}
+              {[safeMode.metadata.signal, safeMode.values.pictureMode, safeMode.metadata.scene].map((item) => <Tag key={item} label={item} />)}
             </div>
           </div>
 
           <div className="relative h-[320px] shrink-0 overflow-hidden rounded-[32px] border border-white/10 bg-black">
-            <video className="h-full w-full object-cover" autoPlay muted loop playsInline poster={mode.image} aria-label={`${mode.title} 视频预览`}><source src={DEMO_VIDEO} type="video/mp4" /></video>
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_45%,rgba(0,0,0,.78))]" />
-            <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-4">
+            <img
+              src={safeMode.image || HERO_IMAGE}
+              onError={(e) => { const img = e.target as HTMLImageElement; img.onerror = null; img.src = HERO_FALLBACK_IMAGE; }}
+              alt="背景图"
+              className="absolute inset-0 w-full h-full object-cover opacity-85"
+            />
+            <video className="absolute inset-0 w-full h-full object-cover z-10" autoPlay muted loop playsInline poster={safeMode.image} aria-label={`${safeMode.title} 视频预览`}><source src={DEMO_VIDEO} type="video/mp4" /></video>
+            <div className="absolute inset-0 z-20 bg-[linear-gradient(180deg,transparent_45%,rgba(0,0,0,.78))]" />
+            <div className="absolute bottom-5 left-5 right-5 z-30 flex items-end justify-between gap-4">
               <div>
                 <p className="mb-2 flex items-center gap-2 text-xs font-semibold text-white/55"><motion.i animate={{ opacity: [1,.3,1] }} transition={{ repeat: Infinity, duration: 1.4 }} className={`h-2 w-2 rounded-full ${confirmed ? "bg-emerald-400" : "bg-[#ff3b48]"}`} />实时视频预览</p>
-                <h2 className="text-2xl font-black text-white">{mode.title}</h2>
+                <h2 className="text-2xl font-black text-white">{safeMode.title}</h2>
               </div>
               <span className="rounded-xl border border-white/15 bg-black/45 px-4 py-3 text-xs font-bold text-white backdrop-blur-xl">HDR10 · MiniLED</span>
             </div>
@@ -1655,7 +1601,7 @@ function PreviewPage({ onBack, mode, savedRecipeTitle, onDelete }: { onBack: () 
         </section>
 
         <aside className="flex min-h-0 flex-col overflow-hidden rounded-[32px] border border-white/10 bg-[#10141a] p-7 shadow-[0_30px_90px_rgba(0,0,0,.42)]">
-          <RecipeDetailsPanel mode={mode} confirmed={confirmed} />
+          <RecipeDetailsPanel mode={safeMode} confirmed={confirmed} />
 
           <div className="mt-5 shrink-0 border-t border-white/[.07] pt-5">
             <p className={`mb-4 text-center text-xs leading-relaxed ${confirmed ? "text-emerald-300/65" : "text-white/32"}`}>
@@ -1673,8 +1619,8 @@ function PreviewPage({ onBack, mode, savedRecipeTitle, onDelete }: { onBack: () 
         </aside>
       </div>
       <AnimatePresence><ShareCodeModal open={!!shareCode} title={shareCode?.title ?? ""} code={shareCode?.code ?? ""} onClose={() => setShareCode(null)} /></AnimatePresence>
-      <AnimatePresence><DeleteRecipeModal open={deleteOpen} title={savedRecipeTitle ?? mode.title} onCancel={() => setDeleteOpen(false)} onConfirm={() => { setDeleteOpen(false); onDelete?.(); }} /></AnimatePresence>
-      <AnimatePresence><ApplyRecipeConfirmModal open={applyConfirmOpen} mode={mode} onCancel={() => setApplyConfirmOpen(false)} onConfirm={confirmApply} /></AnimatePresence>
+      <AnimatePresence><DeleteRecipeModal open={deleteOpen} title={savedRecipeTitle ?? safeMode.title} onCancel={() => setDeleteOpen(false)} onConfirm={() => { setDeleteOpen(false); onDelete?.(); }} /></AnimatePresence>
+      <AnimatePresence><ApplyRecipeConfirmModal open={applyConfirmOpen} mode={safeMode} onCancel={() => setApplyConfirmOpen(false)} onConfirm={confirmApply} /></AnimatePresence>
     </div>
   );
 }
@@ -1789,120 +1735,461 @@ const initialMyRecipes: SavedRecipe[] = [
   { title: "家庭电影夜", desc: "适合全家观看的均衡影院方案", saved: "3 周前", fav: false, img: MOVIE_IMAGES[3], uses: 38, mode: DIRECTOR_MODES[0] },
 ];
 
-function MyRecipesPage({ recipes, onBack, onPreview }: { recipes: SavedRecipe[]; onBack: () => void; onPreview: (recipe: SavedRecipe) => void }) {
-  const [focused, setFocused] = useState(0);
-  const columns = 4;
-  const recipeSections = [
-    {
-      id: "sdr",
-      title: "SDR",
-      subtitle: "适合普通电视、直播和流媒体内容",
-      items: recipes.filter((recipe) => recipe.mode.metadata.signal.toLowerCase().includes("sdr")),
-    },
-    {
-      id: "hdr",
-      title: "HDR",
-      subtitle: "适合高动态范围电影、游戏和体育内容",
-      items: recipes.filter((recipe) => {
-        const signal = recipe.mode.metadata.signal.toLowerCase();
-        const scene = recipe.mode.metadata.scene.toLowerCase();
-        return !signal.includes("dolby") && (signal.includes("hdr") || scene.includes("hdr") || signal.includes("game"));
-      }),
-    },
-    {
-      id: "dolby",
-      title: "Dolby Vision",
-      subtitle: "适合杜比视界片源与影院图效",
-      items: recipes.filter((recipe) => recipe.mode.metadata.signal.toLowerCase().includes("dolby")),
-    },
-  ];
-  const visibleRecipes = recipeSections.flatMap((section) => section.items);
-  const recipeIndexMap = new Map(visibleRecipes.map((recipe, index) => [recipe.title, index]));
+function getRecipeFilterStyle(mode?: PictureMode) {
+  if (!mode || !mode.values) return {};
+  const v = mode.values;
+  const brightness = Math.min(130, Math.max(70, (parseInt(v.screenBrightness || "35", 10) / 35) * 100));
+  const contrast = Math.min(135, Math.max(70, (parseInt(v.contrast || "50", 10) / 50) * 100));
+  const saturate = Math.min(140, Math.max(60, (parseInt(v.color || "50", 10) / 50) * 100));
+  let hue = 0;
+  if (v.colorTemperature?.includes("暖")) hue = 12;
+  if (v.colorTemperature?.includes("冷")) hue = -12;
+  return {
+    filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturate}%) hue-rotate(${hue}deg)`,
+    transition: "filter 0.35s ease-out",
+  };
+}
+
+function MyRecipesPage({ recipes = [], onBack, onPreview }: { recipes?: SavedRecipe[]; onBack: () => void; onPreview: (recipe: SavedRecipe) => void }) {
+  const [activeTab, setActiveTab] = useState(0); // 0: 我的画质方案, 1: 品质模式方案, 2: 自然画质, 3: 电影画质, 4: 游戏画质
+  const [focusedCol, setFocusedCol] = useState(2);
+  const [focusedRow, setFocusedRow] = useState(2); // Focus on "大片观学者" card in column 3 by default
+
+  // State for 3-button action popup menu
+  const [actionMenuRecipe, setActionMenuRecipe] = useState<{ title: string; subtitle: string; mode: PictureMode } | null>(null);
+  const [actionMenuFocus, setActionMenuFocus] = useState(0); // 0: 查看方案, 1: 预览方案, 2: 应用当前方案
+  const [appliedTitle, setAppliedTitle] = useState("帅哥游戏 120Hz");
+  const [previewingTitle, setPreviewingTitle] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState("");
+
+  const columnsData = useMemo(() => {
+    const safeRecipes = Array.isArray(recipes) ? recipes : [];
+    const sdrUserItems = safeRecipes.filter((r) => r?.mode?.metadata?.signal?.toUpperCase()?.includes("SDR"));
+    const hdrUserItems = safeRecipes.filter((r) => r?.mode?.metadata?.signal?.toUpperCase()?.includes("HDR"));
+    const dolbyUserItems = safeRecipes.filter((r) => r?.mode?.metadata?.signal?.toUpperCase()?.includes("DOLBY"));
+
+    return [
+      {
+        id: "sdr-signal",
+        title: "SDR",
+        badge: { label: "SDR 信号", bg: "bg-[#34c759] text-black" },
+        items: [
+          { id: "1", title: "南半球草场", subtitle: "SDR · 标准", icon: Leaf, iconBg: "bg-[#183a27] border-emerald-500/40 text-[#2ecc71]", mode: DIRECTOR_MODES[0] },
+          { id: "2", title: "闯大功漂亮", subtitle: "SDR · 明亮", icon: SunMedium, iconBg: "bg-[#3e2716] border-amber-500/40 text-[#f39c12]", mode: DIRECTOR_MODES[1] },
+          { id: "3", title: "纪录片夏热", subtitle: "SDR · 柔和", icon: Sun, iconBg: "bg-[#3a3012] border-yellow-500/40 text-[#f1c40f]", mode: DIRECTOR_MODES[2] },
+          ...sdrUserItems.map((r, idx) => ({
+            id: `user-sdr-${idx}`,
+            title: r.title || "自定义方案",
+            subtitle: `${r.mode?.metadata?.signal || "SDR"} · ${r.mode?.values?.pictureMode || "标准"}`,
+            icon: SlidersHorizontal,
+            iconBg: "bg-[#183a27] border-emerald-500/40 text-[#2ecc71]",
+            mode: r.mode || DIRECTOR_MODES[0],
+          })),
+        ],
+      },
+      {
+        id: "hdr-signal",
+        title: "HDR",
+        badge: { label: "HDR 10", bg: "bg-[#ff9500] text-black" },
+        items: [
+          { id: "4", title: "帅哥游戏 120Hz", subtitle: "HDR · 游戏", icon: Gamepad2, iconBg: "bg-[#1f2038] border-indigo-500/40 text-[#706fd3]", mode: DIRECTOR_MODES[1] },
+          { id: "5", title: "感看大片优雅", subtitle: "HDR · 电影", icon: Clapperboard, iconBg: "bg-[#271832] border-purple-500/40 text-[#a55eea]", mode: DIRECTOR_MODES[0] },
+          { id: "6", title: "超级大片模糊", subtitle: "HDR · FILMMAKER", icon: Box, iconBg: "bg-[#17223b] border-blue-500/40 text-[#4b7bec]", mode: DIRECTOR_MODES[2] },
+          ...hdrUserItems.map((r, idx) => ({
+            id: `user-hdr-${idx}`,
+            title: r.title || "自定义方案",
+            subtitle: `${r.mode?.metadata?.signal || "HDR"} · ${r.mode?.values?.pictureMode || "游戏"}`,
+            icon: SlidersHorizontal,
+            iconBg: "bg-[#1f2038] border-indigo-500/40 text-[#706fd3]",
+            mode: r.mode || DIRECTOR_MODES[1],
+          })),
+        ],
+      },
+      {
+        id: "dolby-vision",
+        title: "Dolby Vision",
+        badge: { label: "Dolby Vision", bg: "bg-[#007aff] text-white" },
+        items: [
+          { id: "7", title: "香港电影院", subtitle: "Dolby Vision · 明亮", icon: Building2, iconBg: "bg-[#122b38] border-cyan-500/40 text-[#00d2d3]", mode: DIRECTOR_MODES[0] },
+          { id: "8", title: "杜比视界 HQ 老杨", subtitle: "Dolby Vision · IQ", icon: Moon, iconBg: "bg-[#141b2f] border-blue-500/40 text-[#54a0ff]", mode: DIRECTOR_MODES[1] },
+          { id: "9", title: "大片观学者", subtitle: "Dolby Vision · 柔和", icon: Camera, iconBg: "bg-[#252528] border-stone-500/40 text-[#c8d6e5]", mode: DIRECTOR_MODES[2] },
+          ...dolbyUserItems.map((r, idx) => ({
+            id: `user-dolby-${idx}`,
+            title: r.title || "自定义方案",
+            subtitle: `${r.mode?.metadata?.signal || "Dolby Vision"} · ${r.mode?.values?.pictureMode || "明亮"}`,
+            icon: SlidersHorizontal,
+            iconBg: "bg-[#122b38] border-cyan-500/40 text-[#00d2d3]",
+            mode: r.mode || DIRECTOR_MODES[0],
+          })),
+        ],
+      },
+    ];
+  }, [recipes]);
+
+  const activeRecipeItem = useMemo(() => {
+    const colItems = columnsData[focusedCol]?.items || columnsData[0]?.items || [];
+    return colItems[focusedRow] || colItems[0] || columnsData[0].items[0];
+  }, [columnsData, focusedCol, focusedRow]);
+
+  // Compute current playing signal and picture mode from applied/previewing state
+  const currentPlayingSubtitle = useMemo(() => {
+    const targetTitle = previewingTitle || appliedTitle;
+    for (const col of columnsData) {
+      const found = col.items.find((item) => item.title === targetTitle);
+      if (found) return found.subtitle;
+    }
+    return "HDR · 游戏";
+  }, [columnsData, previewingTitle, appliedTitle]);
 
   useEffect(() => {
+    if (!toastMsg) return;
+    const timer = setTimeout(() => setToastMsg(""), 2500);
+    return () => clearTimeout(timer);
+  }, [toastMsg]);
+
+  // Execute Action from 3-Button Popup Menu
+  const executeMenuAction = useCallback((actionIndex: number) => {
+    if (!actionMenuRecipe) return;
+    const target = actionMenuRecipe;
+    setActionMenuRecipe(null);
+
+    if (actionIndex === 0) {
+      // 1. 查看方案: Open parameter detail view
+      const foundRecipe = recipes.find((r) => r.title === target.title) || {
+        title: target.title,
+        desc: target.subtitle,
+        saved: "系统内置",
+        fav: true,
+        img: MOVIE_IMAGES[0],
+        uses: 100,
+        mode: target.mode,
+      };
+      onPreview(foundRecipe);
+    } else if (actionIndex === 1) {
+      // 2. 预览方案: Preview mode in real time
+      setPreviewingTitle(target.title);
+      setToastMsg(`已开启「${target.title}」实时画质预览`);
+    } else if (actionIndex === 2) {
+      // 3. 应用当前方案: Apply mode directly
+      setAppliedTitle(target.title);
+      setPreviewingTitle(null);
+      setToastMsg(`已成功应用「${target.title}」画质方案`);
+    }
+  }, [actionMenuRecipe, onPreview, recipes]);
+
+  // TV Remote D-Pad Navigation Handler
+  useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (!visibleRecipes.length) return;
-      if (e.key === "ArrowRight") { e.preventDefault(); setFocused((f) => Math.min(f + 1, visibleRecipes.length - 1)); }
-      if (e.key === "ArrowLeft") { e.preventDefault(); setFocused((f) => Math.max(f - 1, 0)); }
-      if (e.key === "ArrowDown") { e.preventDefault(); setFocused((f) => Math.min(f + columns, visibleRecipes.length - 1)); }
-      if (e.key === "ArrowUp") { e.preventDefault(); setFocused((f) => Math.max(f - columns, 0)); }
-      if (e.key === "Enter") onPreview(visibleRecipes[focused]);
+      if (actionMenuRecipe) {
+        if (e.key === "Escape" || e.key === "Backspace") {
+          e.preventDefault();
+          setActionMenuRecipe(null);
+          return;
+        }
+        if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          setActionMenuFocus((f) => Math.max(0, f - 1));
+        }
+        if (e.key === "ArrowRight") {
+          e.preventDefault();
+          setActionMenuFocus((f) => Math.min(2, f + 1));
+        }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          executeMenuAction(actionMenuFocus);
+        }
+        return;
+      }
+
+      if (e.key === "Escape" || e.key === "Backspace") {
+        e.preventDefault();
+        onBack();
+        return;
+      }
+
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setFocusedCol((col) => Math.max(0, col - 1));
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        setFocusedCol((col) => Math.min(2, col + 1));
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setFocusedRow((row) => Math.min(row + 1, (columnsData[focusedCol]?.items.length || 1) - 1));
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setFocusedRow((row) => Math.max(0, row - 1));
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (activeRecipeItem) {
+          setActionMenuFocus(0);
+          setActionMenuRecipe({
+            title: activeRecipeItem.title,
+            subtitle: activeRecipeItem.subtitle,
+            mode: activeRecipeItem.mode,
+          });
+        }
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [focused, onPreview, visibleRecipes]);
-
-  useEffect(() => {
-    setFocused((index) => Math.min(index, Math.max(visibleRecipes.length - 1, 0)));
-  }, [visibleRecipes.length]);
+  }, [actionMenuFocus, actionMenuRecipe, activeRecipeItem, columnsData, executeMenuAction, focusedCol, onBack]);
 
   return (
-    <div className="flex h-full w-full flex-col bg-[radial-gradient(circle_at_18%_8%,rgba(70,96,150,.18),transparent_34%),radial-gradient(circle_at_88%_18%,rgba(255,59,72,.08),transparent_30%),#07090c]" style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}>
-      <header className="flex h-[96px] shrink-0 items-center justify-between px-12"><button onClick={onBack} className="flex items-center gap-2 text-sm font-medium text-white/50 hover:text-white"><ArrowLeft size={18} />返回</button><div className="text-center"><h1 className="text-xl font-black text-white">我的画质方案</h1><p className="mt-1 text-[10px] tracking-[.16em] text-white/30">SAVED PICTURE ASSETS</p></div><div className="flex items-center gap-2 text-xs text-white/35"><BookOpen size={14} />已保存 {recipes.length} 个</div></header>
-
-      <main className="min-h-0 flex-1 overflow-y-auto px-12 pb-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {recipes.length === 0 ? (
-          <div className="flex h-full items-center justify-center rounded-[34px] border border-white/10 bg-white/[.035]">
-            <div className="text-center">
-              <BookOpen size={56} className="mx-auto text-white/22" />
-              <h2 className="mt-5 text-4xl font-black text-white">暂无我的方案</h2>
-              <p className="mt-3 text-2xl font-semibold text-white/42">保存或导入后，会出现在这里。</p>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-10">
-            {recipeSections.map((section) => (
-              <section key={section.id}>
-                <div className="mb-5 flex items-end gap-4">
-                  <h2 className="text-[clamp(34px,2.2vw,52px)] font-black tracking-tight text-white/88">{section.title}</h2>
-                  <p className="pb-2 text-[clamp(18px,1.05vw,24px)] font-semibold text-white/36">{section.subtitle}</p>
-                </div>
-                {section.items.length ? (
-                  <div className="grid grid-cols-4 gap-8">
-                    {section.items.map((recipe) => {
-                      const cardIndex = recipeIndexMap.get(recipe.title) ?? 0;
-                      return (
-                        <motion.button
-                          key={`${section.id}-${recipe.title}`}
-                          onMouseEnter={() => setFocused(cardIndex)}
-                          onFocus={() => setFocused(cardIndex)}
-                          onClick={() => onPreview(recipe)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") onPreview(recipe);
-                          }}
-                          animate={{ scale: focused === cardIndex ? 1.055 : 1, y: focused === cardIndex ? -5 : 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="group min-w-0 cursor-pointer text-left outline-none"
-                        >
-                          <div
-                            className="relative aspect-[16/9] overflow-hidden rounded-[24px] border bg-[#12161c]"
-                            style={{ borderColor: focused === cardIndex ? "rgba(255,255,255,.92)" : "rgba(255,255,255,.08)", boxShadow: focused === cardIndex ? "0 0 0 4px rgba(255,255,255,.13),0 26px 62px rgba(0,0,0,.55)" : "0 14px 34px rgba(0,0,0,.28)" }}
-                          >
-                            <img src={recipe.img} alt={recipe.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" style={{ filter: "brightness(.76) saturate(.96)" }} />
-                            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.04)_0%,rgba(0,0,0,.16)_45%,rgba(0,0,0,.64)_100%)]" />
-                            <span className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/18 bg-black/34 text-white backdrop-blur-xl"><Play size={14} fill="white" /></span>
-                            <div className="absolute bottom-3 left-3 flex max-w-[calc(100%-24px)] flex-wrap gap-2">
-                              <TVTag>{recipe.mode.metadata.signal}</TVTag>
-                              <TVTag>{recipe.mode.values.pictureMode}</TVTag>
-                              <TVTag>{recipe.mode.metadata.scene}</TVTag>
-                            </div>
-                          </div>
-                          <h3 className="mt-4 line-clamp-1 text-[clamp(26px,1.55vw,38px)] font-black leading-tight text-white/88">{recipe.title}</h3>
-                          <p className="mt-2 line-clamp-1 text-[clamp(17px,.98vw,23px)] font-semibold text-white/45">{recipe.desc}</p>
-                        </motion.button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="flex aspect-[16/2.25] items-center justify-center rounded-[24px] border border-dashed border-white/10 bg-white/[.025] text-[clamp(18px,1vw,24px)] font-semibold text-white/24">
-                    暂无 {section.title} 方案
-                  </div>
-                )}
-              </section>
-            ))}
-          </div>
+    <div className="relative w-full h-full overflow-hidden bg-[#07090c]" style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}>
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toastMsg && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="fixed top-8 left-1/2 -translate-x-1/2 z-[220] flex items-center gap-3 rounded-full border border-emerald-400/40 bg-black/85 px-7 py-3.5 text-lg font-black text-emerald-300 shadow-[0_12px_40px_rgba(0,0,0,0.7)] backdrop-blur-2xl"
+          >
+            <Check size={22} className="text-emerald-400" />
+            {toastMsg}
+          </motion.div>
         )}
-      </main>
+      </AnimatePresence>
+
+      {/* 3-Button Action Menu Modal (User Request 5) */}
+      <AnimatePresence>
+        {actionMenuRecipe && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-md"
+            onClick={() => setActionMenuRecipe(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="w-[620px] rounded-3xl border border-white/20 bg-[#121620]/95 p-7 text-center shadow-[0_30px_90px_rgba(0,0,0,0.8)] backdrop-blur-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-2xl font-black text-white">方案操作选项</h3>
+              <p className="mt-2 text-sm font-semibold text-white/50">
+                请选择对「<span className="text-emerald-400 font-bold">{actionMenuRecipe.title}</span>」执行的操作
+              </p>
+
+              <div className="mt-8 grid grid-cols-3 gap-4">
+                <button
+                  onMouseEnter={() => setActionMenuFocus(0)}
+                  onClick={() => executeMenuAction(0)}
+                  className={`flex flex-col items-center justify-center gap-3 rounded-2xl p-5 font-black transition-all ${
+                    actionMenuFocus === 0
+                      ? "border-2 border-white bg-white/20 shadow-lg scale-105 text-white"
+                      : "border border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+                  }`}
+                >
+                  <Eye size={26} className={actionMenuFocus === 0 ? "text-white" : "text-white/60"} />
+                  <span className="text-base">1. 查看方案</span>
+                </button>
+
+                <button
+                  onMouseEnter={() => setActionMenuFocus(1)}
+                  onClick={() => executeMenuAction(1)}
+                  className={`flex flex-col items-center justify-center gap-3 rounded-2xl p-5 font-black transition-all ${
+                    actionMenuFocus === 1
+                      ? "border-2 border-amber-400 bg-amber-500/25 shadow-lg scale-105 text-amber-300"
+                      : "border border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+                  }`}
+                >
+                  <Sparkles size={26} className={actionMenuFocus === 1 ? "text-amber-300" : "text-white/60"} />
+                  <span className="text-base">2. 预览方案</span>
+                </button>
+
+                <button
+                  onMouseEnter={() => setActionMenuFocus(2)}
+                  onClick={() => executeMenuAction(2)}
+                  className={`flex flex-col items-center justify-center gap-3 rounded-2xl p-5 font-black transition-all ${
+                    actionMenuFocus === 2
+                      ? "border-2 border-emerald-400 bg-emerald-500/25 shadow-lg scale-105 text-emerald-300"
+                      : "border border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+                  }`}
+                >
+                  <CheckCircle2 size={26} className={actionMenuFocus === 2 ? "text-emerald-300" : "text-white/60"} />
+                  <span className="text-base">3. 应用当前方案</span>
+                </button>
+              </div>
+
+              <p className="mt-6 text-xs text-white/35">按遥控器 [ 左右 ] 切换选项 · [ 确认/OK ] 执行 · [ 返回 ] 退出</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Background Video for Live Real-Time Picture Quality Preview */}
+      <section className="relative h-full overflow-hidden bg-[#0c1017]">
+        {/* Background Image Fallback Layer */}
+        <img
+          src={HERO_IMAGE}
+          onError={(e) => { const img = e.target as HTMLImageElement; img.onerror = null; img.src = HERO_FALLBACK_IMAGE; }}
+          alt="TCL 影视画面背景"
+          className="absolute inset-0 w-full h-full object-cover opacity-85"
+          style={getRecipeFilterStyle(activeRecipeItem?.mode)}
+        />
+        <video
+          className="absolute inset-0 w-full h-full object-cover z-10"
+          autoPlay
+          muted
+          loop
+          playsInline
+          poster={HERO_IMAGE}
+          style={getRecipeFilterStyle(activeRecipeItem?.mode)}
+          aria-label="画质效果实时预览"
+        >
+          <source src={DEMO_VIDEO} type="video/mp4" />
+        </video>
+        <div className="absolute inset-0 z-20" style={{ background: "linear-gradient(180deg,rgba(0,0,0,.15),transparent 30%,rgba(0,0,0,.45) 100%)" }} />
+      </section>
+
+      {/* Bottom Floating Glass Drawer Panel (Exact Match to Screenshot) */}
+      <motion.section
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 25 }}
+        className="home-main absolute inset-x-6 bottom-4 z-50 rounded-[28px] border border-white/14 p-6 shadow-[0_30px_90px_rgba(0,0,0,.9)]"
+        style={{
+          height: "52vh",
+          background: "linear-gradient(180deg,rgba(11,14,21,.78) 0%,rgba(9,12,18,.96) 20%,#07080c 100%)",
+          backdropFilter: "blur(32px)",
+        }}
+      >
+        {/* Top ambient glow line */}
+        <div className="absolute inset-x-12 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/35 to-transparent" />
+
+        {/* Top Header Bar */}
+        <div className="mb-4 flex items-center justify-between border-b border-white/[.08] pb-3.5">
+          {/* Left Title */}
+          <div className="flex items-center gap-2">
+            <span className="rounded-xl border border-red-500/50 bg-[#7e1525] px-4 py-1.5 text-sm font-black text-white shadow-lg shadow-red-900/30">
+              我的画质方案
+            </span>
+          </div>
+
+          {/* Right Status Controls */}
+          <div className="flex items-center gap-4">
+            <span className="text-xs font-medium text-white/50">
+              当前播放: <strong className="text-white/80">HDR10 · 电影</strong>
+            </span>
+            <button
+              onClick={onBack}
+              className="rounded-xl border border-red-500/40 bg-red-500/12 px-3.5 py-1.5 text-xs font-black text-red-300 transition hover:bg-red-500/25"
+            >
+              退出画质设置
+            </button>
+          </div>
+        </div>
+
+        {/* 3 Signal Columns Grid */}
+        <div className="grid grid-cols-3 gap-6 h-[calc(100%-100px)] pb-6">
+          {columnsData.map((col, colIdx) => (
+            <div key={col.id} className="flex flex-col min-h-0">
+              {/* Column Header */}
+              <div className="mb-3 flex items-center gap-2.5 px-1">
+                <h3 className="text-xl font-black tracking-tight text-white">{col.title}</h3>
+                {col.badge && (
+                  <span className={`rounded-md px-2 py-0.5 text-[11px] font-extrabold shadow-sm ${col.badge.bg}`}>
+                    {col.badge.label}
+                  </span>
+                )}
+              </div>
+
+              {/* Cards List */}
+              <div className="min-h-0 flex-1 overflow-y-auto space-y-3 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {col.items.map((recipe, rowIdx) => {
+                  const isFocused = focusedCol === colIdx && focusedRow === rowIdx;
+                  const isApplied = appliedTitle === recipe.title;
+                  const isPreviewing = previewingTitle === recipe.title;
+                  const IconComp = recipe.icon || SlidersHorizontal;
+
+                  return (
+                    <motion.div
+                      key={recipe.id || recipe.title}
+                      onMouseEnter={() => {
+                        setFocusedCol(colIdx);
+                        setFocusedRow(rowIdx);
+                      }}
+                      onClick={() => {
+                        setFocusedCol(colIdx);
+                        setFocusedRow(rowIdx);
+                        setActionMenuFocus(0);
+                        setActionMenuRecipe({
+                          title: recipe.title,
+                          subtitle: recipe.subtitle,
+                          mode: recipe.mode,
+                        });
+                      }}
+                      className={`group relative flex items-center justify-between rounded-2xl p-3.5 cursor-pointer transition-all duration-200 outline-none ${
+                        isApplied
+                          ? "border-2 border-[#1db954] bg-[#0c1f16] shadow-[0_0_18px_rgba(29,185,84,0.25)]"
+                          : isPreviewing
+                          ? "border-2 border-amber-400 bg-amber-950/30 shadow-[0_0_18px_rgba(245,158,11,0.25)]"
+                          : isFocused
+                          ? "border-2 border-white bg-white/16 shadow-[0_0_24px_rgba(255,255,255,0.35)] scale-[1.02]"
+                          : "border border-white/10 bg-[#121620] hover:bg-white/[.08] hover:border-white/30"
+                      }`}
+                    >
+                      {/* Left Content (Icon + Title & Subtitle) */}
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        {/* Icon Box */}
+                        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border ${recipe.iconBg || "bg-blue-900/40 border-blue-500/30 text-blue-400"}`}>
+                          <IconComp size={24} />
+                        </div>
+
+                        {/* Title & Subtitle */}
+                        <div className="min-w-0 flex-1">
+                          <h4 className={`truncate text-lg font-black transition-all ${
+                            isApplied ? "text-[#1db954]" : isPreviewing ? "text-amber-300" : "text-white"
+                          }`}>
+                            {recipe.title}
+                          </h4>
+                          <p className="mt-0.5 truncate text-xs font-semibold text-white/45">
+                            {recipe.subtitle} {isPreviewing && "· [ 预览中 ]"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Right Indicators */}
+                      {isApplied && (
+                        <div className="flex shrink-0 items-center justify-center text-[#1db954] ml-2">
+                          <CheckCircle2 size={24} fill="currentColor" className="text-[#0c1f16]" />
+                        </div>
+                      )}
+                      {isPreviewing && !isApplied && (
+                        <span className="rounded-md bg-amber-500/20 border border-amber-400/40 px-2 py-0.5 text-[10px] font-black text-amber-300">
+                          预览中
+                        </span>
+                      )}
+                      {isFocused && !isApplied && !isPreviewing && (
+                        <div className="h-6 w-1.5 rounded-full bg-white/80 shrink-0 ml-2 shadow-[0_0_8px_rgba(255,255,255,0.6)]" />
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom Remote Action Bar */}
+        <div className="flex items-center justify-between border-t border-white/[.08] pt-3 text-xs font-semibold text-white/45">
+          <div className="flex items-center gap-6">
+            <span><strong className="rounded border border-white/20 bg-white/10 px-1.5 py-0.5 text-white">确认 / OK</strong> 点击选择操作</span>
+            <span><strong className="rounded border border-white/20 bg-white/10 px-1.5 py-0.5 text-white">返回</strong> 退出图像设置</span>
+            <span><strong className="rounded border border-white/20 bg-white/10 px-1.5 py-0.5 text-white">上下</strong> 切换方案</span>
+            <span><strong className="rounded border border-white/20 bg-white/10 px-1.5 py-0.5 text-white">左右</strong> 切换信号分类</span>
+          </div>
+          <span className="text-white/30">TCL TV OS 智能画质引擎</span>
+        </div>
+      </motion.section>
     </div>
   );
 }
@@ -2060,7 +2347,7 @@ function SharePage({ onBack }: { onBack: () => void }) {
 
 // ─── ROOT ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [page, setPage] = useState<Page>("home");
+  const [page, setPage] = useState<Page>("myrecipes");
   const [selectedMode, setSelectedMode] = useState<PictureMode>(DIRECTOR_MODES[0]);
   const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>(initialMyRecipes);
   const [selectedSavedRecipeTitle, setSelectedSavedRecipeTitle] = useState<string | null>(null);
